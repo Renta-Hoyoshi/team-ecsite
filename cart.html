@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+
+<link href="/css/reset.css" th:href="@{/css/reset.css}" rel="stylesheet" />
+<link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet" />
+<script src="http://code.jquery.com/jquery-3.4.1.min.js"></script>
+<title>Cony Jewelry</title>
+
+</head>
+<body>
+
+<header th:insert="fragments/page_header::pageHeader"></header>
+
+<main>
+
+	<div class="container cart">
+		<h2>カート</h2>
+		<div class="noData" th:if="${cartList.size() == 0 || cartList == null }">
+			<p class="info">カート情報はありません。</p>
+		</div>
+		<input type="hidden" id="sessionUserId" th:value="${loginSession.getUserId()}" />
+		<table class="cart" th:if="${cartList.size() != 0 && cartList != null}">
+			<tr>
+				<th>選択</th><th>画像</th><th>商品名</th><th>価格(円)</th><th>個数</th><th>小計(円)</th>
+			</tr>
+			<tr th:each="cartItem : ${cartList}" id="cartContent">
+				<td>
+					<input type="checkbox" id="checkbox" name="checkbox" th:value="${cartItem.id}"/>
+				</td>
+				<td class="image">
+					<a th:href="@{/cony/product/{id}(id=${cartItem.productId})}">
+						<img class="itemImage" th:src="${cartItem.imageFullPath}"/>
+					</a>
+				</td>
+				<td th:text="${cartItem.productName}"><a th:href="@{/cony/product/{id}(id=${cartItem.productId})}"></a></td>
+				<td class="number" th:text="${cartItem.price}"></td>
+				<td class="number" id="count" th:value="${cartItem.productCount}" th:text="${cartItem.productCount}"></td>
+				<td class="number" id="price" th:value="${cartItem.price * cartItem.productCount}" th:text="${cartItem.price * cartItem.productCount}"></td>
+			</tr>
+			<tr>
+				<td class="totalArea"></td>
+				<td class="totalArea"></td>
+				<td class="totalArea">合計(円)</td>
+				<td class="totalArea"></td>
+				<td class="totalArea" id="sum_count"></td>
+				<td class="totalArea" id="sum_price"></td>
+			</tr>
+		</table>
+		<div class="buttonArea"  th:if="${cartList.size() != 0 && cartList != null }">
+			<button id="deleteBtn" disabled>削除</button>
+			<form action="/cony/settlement/">
+				<button type="submit" id="purchaseBtn">購入</button>
+			</form>
+		</div>
+	</div>
+</main>
+
+<script>
+	$(() => {
+		sumPrice();
+		sumCount();
+		
+		//合計個数
+		function sumPrice(){
+			let priceList = $("table td[id='price']").map(function(index, val){
+			let price = parseInt($(val).text());
+			if(price >= 0) {
+				return price;
+			} else {
+				return 0;
+			}
+		});
+		
+		let totalPrice = 0;
+		priceList.map(function(index, val){
+			totalPrice = totalPrice + val;
+		});
+		$("#sum_price").text(totalPrice);
+		}
+		
+		
+		//合計金額
+		function sumCount(){
+			let countList = $("table td[id='count']").map(function(index, val){
+			let count = parseInt($(val).text());
+			if(count >= 0) {
+				return count;
+			} else {
+				return 0;
+			}
+		});
+		
+		let totalCount = 0;
+		countList.each(function(index, val){
+			totalCount = totalCount + val;
+		});
+		$("#sum_count").text(totalCount);
+		}
+		
+		//削除ボタン押下時
+		$('#deleteBtn').on('click', (e) => {
+			event.preventDefault();
+			let tdList = $('input[name="checkbox"]:checked').parent().parent().find('td');
+			let cartIdArray = [];
+			$('input[name="checkbox"]:checked').map(function (index, elem) {
+				cartIdArray.push($(this).val());
+				return $(this).val();
+			});
+			
+			$.ajax({
+				type: 'POST',
+				url: '/cony/cart/delete',
+				data: JSON.stringify({ 'cartIdArray' : cartIdArray }),
+				contentType: 'application/json',
+				scriptCharset: 'utf-8'
+			})
+			.then((result) => {
+				$(tdList).parent().remove();
+				sumPrice();
+				sumCount();
+				$("#deleteBtn").prop("disabled", true);
+				console.log(result);
+				let cartContent = $("#cartContent");
+				if( cartContent.length == 0) {
+					location.href = "/cony/cart/";
+				};
+			}, () => {
+				console.error('Error: ajax connection failed. ');
+			}
+			);
+		});
+		//削除ボタン活性化
+		$(function(){
+			$("#deleteBtn").prop("disabled", true);
+			$("input[type='checkbox']").on('change', function () {
+				if($("#checkbox:checked").length > 0) {
+					$("#deleteBtn").prop("disabled", false);
+				} else {
+				$("#deleteBtn").prop("disabled", true);
+				}
+			});
+		});
+		
+		$("#purchaseBtn").on('click', (e) => {
+			let userId = $("#sessionUserId").val();
+			if($("#hiddenUserName").val() == "" && userId == 0 ) {
+				e.preventDefault();
+				alert('ログインしてください。');
+			}
+		});
+	});
+</script>
+
+</body>
+</html>
